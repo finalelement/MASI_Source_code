@@ -1,0 +1,58 @@
+clear all;
+
+goldDir = '/fs4/masi/nathv/Splitted_Data/b3000_goldset/PAS16_dwi'
+
+vals = {'b1000','b1500','b2000','b2500','b3000'};
+
+
+reps = {'./128374/128374_b3000_rep4',
+    './128374/128374_b3000_rep3',
+    './128374/128374_b3000_rep2',
+    './128374/128374_b3000_rep1',
+    './128457/128457_b3000_rep3',
+    './128457/128457_b3000_rep4',
+    './128457/128457_b3000_rep1',
+    './128457/128457_b3000_rep2',
+    './128442/128442_b3000_rep3',
+    './128442/128442_b3000_rep4',
+    './128442/128442_b3000_rep2',
+    './128442/128442_b3000_rep1'};
+
+WMmask = load_nii('/fs4/masi/nathv/HARDI_Metrics/WMmask.nii');
+
+if(~exist('test20','var'))
+    test20 = load_nii([reps{1} filesep 'test_20.nii'])
+end
+for jRep=1:length(reps)
+    pasfile = dir([reps{jRep} filesep '*peaks.Bdouble'])
+    fp = fopen([reps{jRep} filesep pasfile(1).name],'rb','ieee-be');
+    data = fread(fp,'double');
+    fclose(fp);
+    voldat = permute(reshape(data,[length(data)/prod(test20.hdr.dime.dim(2:4)) test20.hdr.dime.dim(2:4)]),[2 3 4 1]);
+    volOI(:,:,:,jRep) = voldat(:,:,:,3);
+end
+
+
+fp = fopen([goldDir filesep 'PDs.Bdouble'],'rb','ieee-be');
+data = fread(fp,'double');
+fclose(fp);
+volgold = permute(reshape(data,[length(data)/prod(test20.hdr.dime.dim(2:4)) test20.hdr.dime.dim(2:4)]),[2 3 4 1]);
+volOIgold(:,:,:) = volgold(:,:,:,3);
+
+
+mask2 = WMmask.img.*(volOIgold>0);
+
+
+agreed = mode(volOI,4);
+consensus = volOI==repmat(agreed,[1 1 1 size(volOI,4)]);
+correct = volOI==repmat(volOIgold,[1 1 1 size(volOI,4)]);
+
+consensusP = mean(consensus,4);
+correctP = mean(correct,4);
+
+stats = [mean(consensusP(find(mask2(:)))) std(consensusP(find(mask2(:)))) mean(correctP(find(mask2(:)))) std(correctP(find(mask2(:))))]
+
+figure(1);
+imagesc([mean(consensus,4) mean(correct,4)])
+
+
